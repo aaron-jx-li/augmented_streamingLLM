@@ -14,6 +14,9 @@ from tqdm import tqdm
 from streaming_llm.utils import load, download_url, load_jsonl
 from streaming_llm.enable_streaming_llm import enable_streaming_llm
 
+from huggingface_hub import login
+
+login(token="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")
 
 @torch.no_grad()
 def greedy_generate(model, tokenizer, input_ids, past_key_values, max_gen_len):
@@ -64,6 +67,8 @@ def streaming_inference(model, tokenizer, prompts, kv_cache=None, max_gen_len=10
         prompt = "USER: " + prompt + "\n\nASSISTANT: "
         print("\n" + prompt, end="")
         input_ids = tokenizer(prompt, return_tensors="pt").input_ids
+        #print(input_ids.shape)
+        #input_ids[:, 0] = 259
         input_ids = input_ids.to(model.device)
         seq_len = input_ids.shape[1]
         if kv_cache is not None:
@@ -73,6 +78,7 @@ def streaming_inference(model, tokenizer, prompts, kv_cache=None, max_gen_len=10
         past_key_values = greedy_generate(
             model, tokenizer, input_ids, past_key_values, max_gen_len=max_gen_len
         )
+        
 
 
 def main(args):
@@ -111,12 +117,13 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--model_name_or_path", type=str, default="lmsys/vicuna-13b-v1.3"
+        "--model_name_or_path", type=str, default="meta-llama/Llama-2-7b-chat-hf"
     )
     parser.add_argument("--data_root", type=str, default="data/")
     parser.add_argument("--enable_streaming", action="store_true")
-    parser.add_argument("--start_size", type=int, default=4)
+    parser.add_argument("--start_size", type=int, default=1)
     parser.add_argument("--recent_size", type=int, default=2000)
+    #parser.add_argument("--middle_size", type=int, default=1000)
     args = parser.parse_args()
 
     main(args)

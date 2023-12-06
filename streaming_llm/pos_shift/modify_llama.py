@@ -38,7 +38,8 @@ def llama_pos_shift_attention_forward(
     use_cache: bool = False,
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
     bsz, q_len, _ = hidden_states.size()
-
+    
+    # Default pretraining_tp is 1
     if self.config.pretraining_tp > 1:
         key_value_slicing = (
             self.num_key_value_heads * self.head_dim
@@ -82,12 +83,16 @@ def llama_pos_shift_attention_forward(
         bsz, q_len, self.num_key_value_heads, self.head_dim
     ).transpose(1, 2)
 
+    # states shape: (1, 32, 1, 128)
     kv_seq_len = key_states.shape[-2]
     if past_key_value is not None:
         kv_seq_len += past_key_value[0].shape[-2]
+    #print(kv_seq_len)
     cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
     ### Shift Pos: query pos is min(cache_size, idx)
     # query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+    #print(position_ids)
+    # position_id: [kv_seq_len - 1]
     query_states = apply_rotary_pos_emb_single(query_states, cos, sin, position_ids)
     ###
 
@@ -95,7 +100,8 @@ def llama_pos_shift_attention_forward(
         # reuse k, v, self_attention
         key_states = torch.cat([past_key_value[0], key_states], dim=2)
         value_states = torch.cat([past_key_value[1], value_states], dim=2)
-
+    #print(key_states.shape, value_states.shape)
+    # states shape: (1, 32, kv_seq_len, 128)
     past_key_value = (key_states, value_states) if use_cache else None
 
     ### Shift Pos: key pos is the pos in cache
@@ -103,31 +109,37 @@ def llama_pos_shift_attention_forward(
     key_states = apply_rotary_pos_emb_single(key_states, cos, sin, key_position_ids)
     ###
 
-    # repeat k/v heads if n_kv_heads < n_heads
+    # repeat k/v heads if n_kv_heads < n_heads 
+    # num_key_value_groups = num_head // num_key_value_heads
     key_states = repeat_kv(key_states, self.num_key_value_groups)
     value_states = repeat_kv(value_states, self.num_key_value_groups)
 
     attn_weights = torch.matmul(query_states, key_states.transpose(2, 3)) / math.sqrt(
         self.head_dim
     )
-
+    
     if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len):
         raise ValueError(
             f"Attention weights should be of size {(bsz, self.num_heads, q_len, kv_seq_len)}, but is"
             f" {attn_weights.size()}"
         )
-
-    if attention_mask is not None:
+    # attention_mask: all 0's by default
+    if attention_mask is not None: # [?]
         if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
             raise ValueError(
                 f"Attention mask should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attention_mask.size()}"
             )
         attn_weights = attn_weights + attention_mask
 
+    #print(f'before softmax shape: {attn_weights.shape}')
     # upcast attention to fp32
+    #print(torch.mean(attn_weights[0], dim=0))
     attn_weights = nn.functional.softmax(attn_weights, dim=-1, dtype=torch.float32).to(
         query_states.dtype
     )
+    #print(f'after softmax shape: {attn_weights.shape}')
+    #print(torch.mean(attn_weights[0], dim=0))
+    # attn_weights shape: (1, 32, 1, seq_len)
     attn_output = torch.matmul(attn_weights, value_states)
 
     if attn_output.size() != (bsz, self.num_heads, q_len, self.head_dim):

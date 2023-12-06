@@ -14,10 +14,10 @@ import json
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--model_name_or_path", type=str, default="models/llama/llama-7b"
+        "--model_name_or_path", type=str, default="meta-llama/Llama-2-7b-chat-hf"
     )
     parser.add_argument("--revision", type=str, default="main")
-    parser.add_argument("--tokenizer_name_or_path", type=str, default=None)
+    parser.add_argument("--tokenizer_name_or_path", type=str, default="meta-llama/Llama-2-7b-chat-hf")
     parser.add_argument("--dataset_name", type=str, default="wikitext")
 
     parser.add_argument("--task", type=str, default="wikitext-2-raw-v1")
@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument(
         "--num_samples",
         type=int,
-        default=1,
+        default=1000,
     )
 
     parser.add_argument(
@@ -40,6 +40,8 @@ def parse_args():
     parser.add_argument("--enable_start_recent_kv_cache", action="store_true")
     parser.add_argument("--start_size", type=int, default=1)
     parser.add_argument("--recent_size", type=int, default=255)
+    parser.add_argument("--middle_size", type=int, default=255)
+    parser.add_argument("--enable_global_context", type=bool, default=False)
     parser.add_argument("--enable_pos_shift", action="store_true")
 
     parser.add_argument("--num_eval_tokens", type=int, default=None)
@@ -54,12 +56,14 @@ def load(model_name_or_path):
     tokenizer = AutoTokenizer.from_pretrained(
         model_name_or_path,
         trust_remote_code=True,
+        cache_dir = "/n/holyscratch01/hlakkaraju_lab/Lab/aaronli/models"
     )
     model = AutoModelForCausalLM.from_pretrained(
         model_name_or_path,
         device_map="auto",
         torch_dtype=torch.float16,
         trust_remote_code=True,
+        cache_dir = "/n/holyscratch01/hlakkaraju_lab/Lab/aaronli/models"
     )
     if tokenizer.pad_token_id is None:
         if tokenizer.eos_token_id is not None:
