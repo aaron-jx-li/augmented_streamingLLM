@@ -122,7 +122,7 @@ for i, text in enumerate(data["text"][: args.num_samples]):
                     importance = -1
                 else:
                     try:
-                        importance = importance_scores[words_dict[text.split(" ")[wids[idx]]]]
+                        importance = importance_scores[words_dict[text.split(" ")[wids[idx]].lower()]]
                     except:
                         importance = -1
                 importance = torch.tensor([importance])

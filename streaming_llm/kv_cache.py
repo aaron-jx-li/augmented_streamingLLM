@@ -73,7 +73,7 @@ class StartRecentKVCache:
                     torch.cat(
                         [
                             self.k_slice(k, 0, self.start_size),
-                            k[:, :, indices, ...],
+                            k[:, :, weight_indices, ...],
                             self.k_slice(k, seq_len - self.recent_size, seq_len),
                         ],
                         dim=self.k_seq_dim,
@@ -81,7 +81,7 @@ class StartRecentKVCache:
                     torch.cat(
                         [
                             self.v_slice(v, 0, self.start_size),
-                            v[:, :, indices, ...],
+                            v[:, :, weight_indices, ...],
                             self.v_slice(v, seq_len - self.recent_size, seq_len),
                         ],
                         dim=self.v_seq_dim,
