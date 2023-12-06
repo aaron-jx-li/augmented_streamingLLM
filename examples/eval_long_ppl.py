@@ -16,7 +16,10 @@ device = "cuda"
 
 args = parse_args()
 
-data = load_dataset(args.dataset_name, args.task, split=args.split)
+if args.dataset_name == "bookcorpus":
+  data = torch.load("data/book.pt")["data"]
+else:
+  data = load_dataset(args.dataset_name, args.task, split=args.split)
 
 model, tokenizer = load(args.model_name_or_path)
 
